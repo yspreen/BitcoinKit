@@ -39,216 +39,225 @@ import Foundation
 /// Conforms to `MutableCollection`, `RangeReplaceableCollection`, `ExpressibleByArrayLiteral`
 /// , `Equatable`, `Hashable`, `CustomStringConvertible`
 
-public struct BitArray: Hashable, RangeReplaceableCollection {
+public struct BitArray: Hashable {
 
-    // MARK: Creating a BitArray
+	// MARK: Creating a BitArray
 
-    /// Constructs an empty bit array.
-    public init() {}
+	/// Constructs an empty bit array.
+	public init() {}
 
-    /// Constructs a bit array from a `Bool` sequence, such as an array.
-    public init<S: Sequence>(_ elements: S) where S.Iterator.Element == Bool {
-        for value in elements {
-            append(value)
-        }
-    }
+	/// Constructs a bit array from a `Bool` sequence, such as an array.
+	public init<S: Sequence>(_ elements: S) where S.Iterator.Element == Bool {
+		for value in elements {
+			append(value)
+		}
+	}
 
-    public init(data: Data) {
-        guard let viaBitstring = BitArray(binaryString: data.binaryString) else {
-            fatalError("should always be able to init from data, incorrect implementation of either Data.binaryString or `Self.init(binaryString:)`")
-        }
+	public init(data: Data) {
+		guard let viaBitstring = BitArray(binaryString: data.binaryString) else {
+			fatalError("should always be able to init from data, incorrect implementation of either Data.binaryString or `Self.init(binaryString:)`")
+		}
 
-        assert(viaBitstring.asData() == data, "assert correctness of conversion")
+		assert(viaBitstring.asData() == data, "assert correctness of conversion")
 
-        self = viaBitstring
-    }
+		self = viaBitstring
+	}
 
-    /// A non-optimized initializer taking a binary String, if the string passed contains any other characters than '0' or '1' then the init will fail (return nil)
-    public init?<S>(binaryString: S) where S: StringProtocol {
-        let mapped: [Bool] = binaryString.compactMap {
-            if $0 == "1" {
-                return true
-            } else if $0 == "0" {
-                return false
-            } else {
-                fatalError("bad char: \($0)")
-            }
-        }
-        self.init(mapped)
-    }
+	/// A non-optimized initializer taking a binary String, if the string passed contains any other characters than '0' or '1' then the init will fail (return nil)
+	public init?<S>(binaryString: S) where S: StringProtocol {
+		let mapped: [Bool] = binaryString.compactMap {
+			if $0 == "1" {
+				return true
+			} else if $0 == "0" {
+				return false
+			} else {
+				fatalError("bad char: \($0)")
+			}
+		}
+		self.init(mapped)
+	}
 
-    /// A non-optimized initializer taking an array of `UInt11`
-    init<S>(_ elements: S) where S: Sequence, S.Iterator.Element == UInt11 {
-        let binaryString: String = elements.map { $0.binaryString }.joined()
-        guard let bitArray = BitArray(binaryString: binaryString) else { fatalError("Should always be able to create BitArray from [UInt11] binaryString: '\(binaryString)'") }
-        self = bitArray
-    }
+	/// A non-optimized initializer taking an array of `UInt11`
+	init<S>(_ elements: S) where S: Sequence, S.Iterator.Element == UInt11 {
+		let binaryString: String = elements.map { $0.binaryString }.joined()
+		guard let bitArray = BitArray(binaryString: binaryString) else { fatalError("Should always be able to create BitArray from [UInt11] binaryString: '\(binaryString)'") }
+		self = bitArray
+	}
 
-    /// Constructs a new bit array from an `Int` array representation.
-    /// All values different from 0 are considered `true`.
-    public init(intRepresentation: [Int]) {
-        bits.reserveCapacity((intRepresentation.count / Constants.IntSize) + 1)
-        for value in intRepresentation {
-            append(value != 0)
-        }
-    }
+	/// Constructs a new bit array from an `Int` array representation.
+	/// All values different from 0 are considered `true`.
+	public init(intRepresentation: [Int]) {
+		bits.reserveCapacity((intRepresentation.count / Constants.IntSize) + 1)
+		for value in intRepresentation {
+			append(value != 0)
+		}
+	}
 
-    /// Constructs a new bit array with `count` bits set to the specified value.
-    public init(repeating repeatedValue: Bool, count: Int) {
-        precondition(!isEmpty, "Can't construct BitArray with count < 0")
+	/// Constructs a new bit array with `count` bits set to the specified value.
+	public init(repeating repeatedValue: Bool, count: Int) {
+		precondition(!isEmpty, "Can't construct BitArray with count < 0")
 
-        let numberOfInts = (count / Constants.IntSize) + 1
-        let intValue = repeatedValue ? ~0 : 0
-        bits = [Int](repeating: intValue, count: numberOfInts)
-        self.count = count
+		let numberOfInts = (count / Constants.IntSize) + 1
+		let intValue = repeatedValue ? ~0 : 0
+		bits = [Int](repeating: intValue, count: numberOfInts)
+		self.count = count
 
-        if repeatedValue {
-            bits[bits.count - 1] = 0
-            let missingBits = count % Constants.IntSize
-            self.count = count - missingBits
-            for _ in 0..<missingBits {
-                append(repeatedValue)
-            }
-            cardinality = count
-        }
-    }
+		if repeatedValue {
+			bits[bits.count - 1] = 0
+			let missingBits = count % Constants.IntSize
+			self.count = count - missingBits
+			for _ in 0..<missingBits {
+				append(repeatedValue)
+			}
+			cardinality = count
+		}
+	}
 
-    // MARK: Querying a BitArray
+	// MARK: Querying a BitArray
 
-    /// Number of bits stored in the bit array.
-    public fileprivate(set) var count = 0
+	/// Number of bits stored in the bit array.
+	public fileprivate(set) var count = 0
 
-    /// The first bit, or nil if the bit array is empty.
-    public var first: Bool? {
-        return isEmpty ? nil : valueAtIndex(0)
-    }
+	/// The first bit, or nil if the bit array is empty.
+	public var first: Bool? {
+		return isEmpty ? nil : valueAtIndex(0)
+	}
 
-    /// The last bit, or nil if the bit array is empty.
-    public var last: Bool? {
-        return isEmpty ? nil : valueAtIndex(count - 1)
-    }
+	/// The last bit, or nil if the bit array is empty.
+	public var last: Bool? {
+		return isEmpty ? nil : valueAtIndex(count - 1)
+	}
 
-    /// The number of bits set to `true` in the bit array.
-    public fileprivate(set) var cardinality = 0
+	/// The number of bits set to `true` in the bit array.
+	public fileprivate(set) var cardinality = 0
 
-    // MARK: Adding and Removing Bits
+	// MARK: Adding and Removing Bits
 
-    /// Adds a new `Bool` as the last bit.
-    public mutating func append(_ bit: Bool) {
-        if realIndexPath(count).arrayIndex >= bits.count {
-            bits.append(0)
-        }
-        setValue(bit, atIndex: count)
-        count += 1
-    }
+	/// Adds a new `Bool` as the last bit.
+	public mutating func append(_ bit: Bool) {
+		if realIndexPath(count).arrayIndex >= bits.count {
+			bits.append(0)
+		}
+		setValue(bit, atIndex: count)
+		count += 1
+	}
 
-    /// Inserts a bit into the array at a given index.
-    /// Use this method to insert a new bit anywhere within the range
-    /// of existing bits, or as the last bit. The index must be less
-    /// than or equal to the number of bits in the bit array. If you
-    /// attempt to remove a bit at a greater index, you’ll trigger an error.
-    public mutating func insert(_ bit: Bool, at index: Int) {
-        checkIndex(index, lessThan: count + 1)
-        append(bit)
-        for i in stride(from: (count - 2), through: index, by: -1) {
-            let iBit = valueAtIndex(i)
-            setValue(iBit, atIndex: i + 1)
-        }
-        setValue(bit, atIndex: index)
+	/// Inserts a bit into the array at a given index.
+	/// Use this method to insert a new bit anywhere within the range
+	/// of existing bits, or as the last bit. The index must be less
+	/// than or equal to the number of bits in the bit array. If you
+	/// attempt to remove a bit at a greater index, you’ll trigger an error.
+	public mutating func insert(_ bit: Bool, at index: Int) {
+		checkIndex(index, lessThan: count + 1)
+		append(bit)
+		for i in stride(from: (count - 2), through: index, by: -1) {
+			let iBit = valueAtIndex(i)
+			setValue(iBit, atIndex: i + 1)
+		}
+		setValue(bit, atIndex: index)
 
-    }
+	}
 
-    /// Removes the last bit from the bit array and returns it.
-    ///
-    /// - returns: The last bit, or nil if the bit array is empty.
-    @discardableResult
-    public mutating func removeLast() -> Bool {
-        if let value = last {
-            setValue(false, atIndex: count - 1)
-            count -= 1
-            return value
-        }
-        preconditionFailure("Array is empty")
-    }
+	/// Removes the last bit from the bit array and returns it.
+	///
+	/// - returns: The last bit, or nil if the bit array is empty.
+	@discardableResult
+	public mutating func removeLast() -> Bool {
+		if let value = last {
+			setValue(false, atIndex: count - 1)
+			count -= 1
+			return value
+		}
+		preconditionFailure("Array is empty")
+	}
 
-    /// Removes the bit at the given index and returns it.
-    /// The index must be less than the number of bits in the
-    /// bit array. If you attempt to remove a bit at a
-    /// greater index, you’ll trigger an error.
-    @discardableResult
-    public mutating func remove(at index: Int) -> Bool {
-        checkIndex(index)
-        let bit = valueAtIndex(index)
+	/// Removes the bit at the given index and returns it.
+	/// The index must be less than the number of bits in the
+	/// bit array. If you attempt to remove a bit at a
+	/// greater index, you’ll trigger an error.
+	@discardableResult
+	public mutating func remove(at index: Int) -> Bool {
+		checkIndex(index)
+		let bit = valueAtIndex(index)
 
-        for i in (index + 1)..<count {
-            let iBit = valueAtIndex(i)
-            setValue(iBit, atIndex: i - 1)
-        }
+		for i in (index + 1)..<count {
+			let iBit = valueAtIndex(i)
+			setValue(iBit, atIndex: i - 1)
+		}
 
-        removeLast()
-        return bit
-    }
+		removeLast()
+		return bit
+	}
 
-    /// Removes all the bits from the array, and by default
-    /// clears the underlying storage buffer.
-    public mutating func removeAll(keepingCapacity keep: Bool = false) {
-        if !keep {
-            bits.removeAll(keepingCapacity: false)
-        } else {
-            bits[0 ..< bits.count] = [0]
-        }
-        count = 0
-        cardinality = 0
-    }
+	/// Removes all the bits from the array, and by default
+	/// clears the underlying storage buffer.
+	public mutating func removeAll(keepingCapacity keep: Bool = false) {
+		if !keep {
+			bits.removeAll(keepingCapacity: false)
+		} else {
+			bits[0 ..< bits.count] = [0]
+		}
+		count = 0
+		cardinality = 0
+	}
 
-    // MARK: Private Properties and Helper Methods
+	// MARK: Private Properties and Helper Methods
 
-    /// Structure holding the bits.
-    fileprivate var bits = [Int]()
+	/// Structure holding the bits.
+	fileprivate var bits = [Int]()
 
-    fileprivate func valueAtIndex(_ logicalIndex: Int) -> Bool {
-        let indexPath = realIndexPath(logicalIndex)
-        var mask = 1 << indexPath.bitIndex
-        mask = mask & bits[indexPath.arrayIndex]
-        return mask != 0
-    }
+	fileprivate func valueAtIndex(_ logicalIndex: Int) -> Bool {
+		let indexPath = realIndexPath(logicalIndex)
+		var mask = 1 << indexPath.bitIndex
+		mask = mask & bits[indexPath.arrayIndex]
+		return mask != 0
+	}
 
-    fileprivate mutating func setValue(_ newValue: Bool, atIndex logicalIndex: Int) {
-        let indexPath = realIndexPath(logicalIndex)
-        let mask = 1 << indexPath.bitIndex
-        let oldValue = mask & bits[indexPath.arrayIndex] != 0
+	fileprivate mutating func setValue(_ newValue: Bool, atIndex logicalIndex: Int) {
+		let indexPath = realIndexPath(logicalIndex)
+		let mask = 1 << indexPath.bitIndex
+		let oldValue = mask & bits[indexPath.arrayIndex] != 0
 
-        switch (oldValue, newValue) {
-        case (false, true):
-            cardinality += 1
-        case (true, false):
-            cardinality -= 1
-        default:
-            break
-        }
+		switch (oldValue, newValue) {
+		case (false, true):
+			cardinality += 1
+		case (true, false):
+			cardinality -= 1
+		default:
+			break
+		}
 
-        if newValue {
-            bits[indexPath.arrayIndex] |= mask
-        } else {
-            bits[indexPath.arrayIndex] &= ~mask
-        }
-    }
+		if newValue {
+			bits[indexPath.arrayIndex] |= mask
+		} else {
+			bits[indexPath.arrayIndex] &= ~mask
+		}
+	}
 
-    fileprivate func realIndexPath(_ logicalIndex: Int) -> (arrayIndex: Int, bitIndex: Int) {
-        return (logicalIndex / Constants.IntSize, logicalIndex % Constants.IntSize)
-    }
+	fileprivate func realIndexPath(_ logicalIndex: Int) -> (arrayIndex: Int, bitIndex: Int) {
+		return (logicalIndex / Constants.IntSize, logicalIndex % Constants.IntSize)
+	}
 
-    fileprivate func checkIndex(_ index: Int, lessThan: Int? = nil) {
-        let bound = lessThan == nil ? count : lessThan
-        precondition(!isEmpty && index < bound!, "Index out of range (\(index))")
-    }
+	fileprivate func checkIndex(_ index: Int, lessThan: Int? = nil) {
+		let bound = lessThan == nil ? count : lessThan
+		precondition(!isEmpty && index < bound!, "Index out of range (\(index))")
+	}
 
-    // MARK: Constants
+	// MARK: Constants
 
-    fileprivate struct Constants {
-        // Int size in bits
-        static let IntSize = MemoryLayout<Int>.size * 8
-    }
+	fileprivate struct Constants {
+		// Int size in bits
+		static let IntSize = MemoryLayout<Int>.size * 8
+	}
+}
+
+extension BitArray: RangeReplaceableCollection {
+	public mutating func replaceSubrange<C>(_ subrange: Swift.Range<Int>, with newElements: C) where C : Collection, Int == C.Element {
+		bits.replaceSubrange(subrange, with: newElements.map { Int($0) })
+	}
+	public mutating func replaceSubrange<C>(_ subrange: Swift.Range<Int>, with newElements: C) where C : Collection, Bool == C.Element {
+		bits.replaceSubrange(subrange, with: newElements.map { $0 ? 1 : 0 })
+	}
 }
 
 extension BitArray: MutableCollection {
