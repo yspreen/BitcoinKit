@@ -38,7 +38,7 @@ open class HDWallet {
     /// Network for the coni i.e. mainnet/testnet
     public let network: Network
     /// HDKeychain to derive keys
-    private let keychain: HDKeychain
+    public let keychain: HDKeychain
     /// [Secret] Be very careful. This is a root HDPrivateKey
     public var rootXPrivKey: HDPrivateKey
     /// [Secret] Be very careful. This is a root HDPublicKey
