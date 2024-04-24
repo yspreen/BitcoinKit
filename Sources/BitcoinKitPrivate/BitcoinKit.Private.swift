@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import COpenSSL
+import OpenSSL
 import secp256k1
 
 public class _Hash {
